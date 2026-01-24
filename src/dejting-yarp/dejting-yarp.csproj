@@ -14,4 +14,8 @@
     <PackageReference Include="Yarp.ReverseProxy" Version="2.2.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\..\..\Shared\Middleware\CorrelationIdMiddleware.cs" Link="Shared/Middleware/CorrelationIdMiddleware.cs" />
+  </ItemGroup>
+
 </Project>

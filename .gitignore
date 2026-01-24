@@ -1,0 +1,84 @@
+## .NET Build Artifacts
+bin/
+obj/
+out/
+publish/
+
+## Build Results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## Visual Studio / Rider
+.vs/
+.vscode/settings.json
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+.DS_Store
+
+## Build artifacts
+*.dll
+*.exe
+*.pdb
+*.cache
+*.ilk
+*.log
+*.tlog
+*.tmp
+*.vspscc
+*.vssscc
+*.pidb
+*.svclog
+*.scc
+
+## NuGet
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Test Results
+TestResults/
+[Tt]est[Rr]esult*/ 
+*.trx
+*.coverage
+*.coveragexml
+
+## Database Files  
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+## Secrets & Keys
+*.key
+*.pem
+*.p12
+*.pfx
+appsettings.Local.json
+appsettings.*.Local.json
+secrets.json
+.env
+.env.local
+
+## Temporary files
+*~
+*.swp
+*.swo
+.tmp

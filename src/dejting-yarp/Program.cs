@@ -1,4 +1,5 @@
 using System;
+using DatingApp.Shared.Middleware;
 using DejtingYarp.Extensions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -8,6 +9,12 @@ using Microsoft.Extensions.Hosting;
 using Yarp.ReverseProxy;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.IncludeScopes = true;
+    options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
+});
 
 // Add configuration sources
 if (builder.Environment.EnvironmentName == "Local")
@@ -32,6 +39,7 @@ builder.Services.AddReverseProxy()
 
 builder.Services.AddKeycloakAuthentication(builder.Configuration);
 builder.Services.AddAuthorization();
+builder.Services.AddCorrelationIds();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -68,6 +76,7 @@ app.UseCors("AllowAll");
 
 app.UseRouting();
 
+app.UseCorrelationIds();
 app.UseAuthentication();
 app.UseAuthorization();
 
