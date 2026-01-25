@@ -28,8 +28,7 @@ builder.Services.AddCors(options =>
     {
         policy.AllowAnyOrigin()
               .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
+              .AllowAnyHeader();
     });
 });
 
@@ -75,13 +74,6 @@ else
 
 app.UseCors("AllowAll");
 
-// Enable WebSockets support for SignalR
-var webSocketOptions = new WebSocketOptions
-{
-    KeepAliveInterval = TimeSpan.FromSeconds(120)
-};
-app.UseWebSockets(webSocketOptions);
-
 app.UseRouting();
 
 app.UseCorrelationIds();
@@ -94,17 +86,7 @@ app.MapReverseProxy(proxyPipeline =>
 {
     proxyPipeline.Use(async (context, next) =>
     {
-        // Allow auth endpoints without authentication
         if (context.Request.Path.StartsWithSegments("/api/auth", StringComparison.OrdinalIgnoreCase))
-        {
-            await next();
-            return;
-        }
-
-        // Allow websocket connections (SignalR) to pass through - auth handled by hub via query string token
-        if (context.WebSockets.IsWebSocketRequest || 
-            context.Request.Path.StartsWithSegments("/messagingHub", StringComparison.OrdinalIgnoreCase) ||
-            context.Request.Path.StartsWithSegments("/hubs", StringComparison.OrdinalIgnoreCase))
         {
             await next();
             return;
@@ -129,3 +111,5 @@ app.MapReverseProxy(proxyPipeline =>
 app.Urls.Add("http://*:8080");
 
 app.Run();
+
+public partial class Program;
