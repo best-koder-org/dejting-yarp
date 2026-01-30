@@ -7,15 +7,6 @@
   },
   "ReverseProxy": {
     "Routes": {
-      "authRoute": {
-        "ClusterId": "authCluster",
-        "Match": {
-          "Path": "/api/auth/{**catch-all}"
-        },
-        "Metadata": {
-          "BypassAuthentication": "true"
-        }
-      },
       "userRoute": {
         "ClusterId": "userCluster",
         "Match": {
@@ -28,16 +19,10 @@
           "Path": "/profile/{**catch-all}"
         }
       },
-      "profilesRoute": {
-        "ClusterId": "userCluster",
+      "matchmakingRoute": {
+        "ClusterId": "matchmakingCluster",
         "Match": {
-          "Path": "/api/profiles/{**catch-all}"
-        }
-      },
-      "wizardRoute": {
-        "ClusterId": "userCluster",
-        "Match": {
-          "Path": "/api/wizard/{**catch-all}"
+          "Path": "/api/matchmaking/{**catch-all}"
         }
       },
       "swipeRoute": {
@@ -47,12 +32,6 @@
         },
         "Metadata": {
           "RateLimitPolicy": "SwipesPerMinute"
-        }
-      },
-      "matchmakingRoute": {
-        "ClusterId": "matchmakingCluster",
-        "Match": {
-          "Path": "/api/matchmaking/{**catch-all}"
         }
       },
       "photoRoute": {
@@ -70,14 +49,23 @@
       "messagingHubRoute": {
         "ClusterId": "messagingCluster",
         "Match": {
-          "Path": "/hubs/messages/{**catch-all}"
+          "Path": "/messagingHub/{**catch-all}"
+        },
+        "Metadata": {
+          "Transport": "websocket"
+        }
+      },
+      "matchmakingHubRoute": {
+        "ClusterId": "matchmakingCluster",
+        "Match": {
+          "Path": "/hubs/matchmaking/{**catch-all}"
         },
         "Metadata": {
           "Transport": "websocket"
         }
       },
       "safetyRoute": {
-        "ClusterId": "userCluster",
+        "ClusterId": "safetyCluster",
         "Match": {
           "Path": "/api/safety/{**catch-all}"
         },
@@ -93,24 +81,10 @@
       }
     },
     "Clusters": {
-      "authCluster": {
-        "Destinations": {
-          "authService": {
-            "Address": "http://localhost:8081/"
-          }
-        }
-      },
       "userCluster": {
         "Destinations": {
           "userService": {
             "Address": "http://localhost:8082/"
-          }
-        }
-      },
-      "swipeCluster": {
-        "Destinations": {
-          "swipeService": {
-            "Address": "http://localhost:8087/"
           }
         }
       },
@@ -135,12 +109,23 @@
           }
         }
       },
+      "swipeCluster": {
+        "Destinations": {
+          "swipeService": {
+            "Address": "http://localhost:8087/"
+          }
+        }
+      },
+      "safetyCluster": {
+        "Destinations": {
+          "safetyService": {
+            "Address": "http://localhost:8088/"
+          }
+        }
+      },
       "healthCluster": {
         "LoadBalancingPolicy": "RoundRobin",
         "Destinations": {
-          "authService": {
-            "Address": "http://localhost:8081/"
-          },
           "userService": {
             "Address": "http://localhost:8082/"
           },
@@ -155,6 +140,9 @@
           },
           "swipeService": {
             "Address": "http://localhost:8087/"
+          },
+          "safetyService": {
+            "Address": "http://localhost:8088/"
           }
         }
       }
@@ -166,11 +154,11 @@
       "Audience": "yarp-gateway",
       "Audiences": [
         "yarp-gateway",
-        "auth-service",
         "matchmaking-service",
         "photo-service",
         "messaging-service",
-        "swipe-service"
+        "swipe-service",
+        "safety-service"
       ],
       "RequireHttpsMetadata": false
     }

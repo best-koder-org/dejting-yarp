@@ -1,9 +1,19 @@
 # API Contract: DatingApp MVP Foundation
 
 ## Authentication
-- **POST** `/auth/login` → `{ email, password }` → `{ accessToken, refreshToken, expiresIn }`
-- **POST** `/auth/register` → `{ email, password, displayName }` → `{ userId, verificationSent: true }`
-- **POST** `/auth/refresh` → `{ refreshToken }` → `{ accessToken, expiresIn }`
+**Authentication is handled by Keycloak OIDC** (external to this API).
+
+- **Token Endpoint**: `http://localhost:8090/realms/DatingApp/protocol/openid-connect/token`
+- **Authorization Endpoint**: `http://localhost:8090/realms/DatingApp/protocol/openid-connect/auth`
+- **User Registration**: Managed through Keycloak Admin API or realm configuration
+- **JWT Validation**: All backend services validate tokens against Keycloak Authority
+
+**Client Configuration**:
+- Client ID: `datingapp-backend` (for backend services)
+- Audience: `datingapp-api`
+- Grant Types: `authorization_code`, `refresh_token`
+
+> **Note**: The legacy `/auth/*` endpoints were removed on Oct 22, 2025 (T008). Keycloak is now the sole authentication provider.
 
 ## Profile Service (`UserService`)
 - **GET** `/profile/me` → returns `MemberProfileDto`

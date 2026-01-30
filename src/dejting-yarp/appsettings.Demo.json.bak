@@ -1,8 +1,9 @@
 {
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
+  "Kestrel": {
+    "Endpoints": {
+      "Http": {
+        "Url": "http://*:80"
+      }
     }
   },
   "ReverseProxy": {
@@ -22,22 +23,10 @@
           "Path": "/api/userprofiles/{**catch-all}"
         }
       },
-      "profileRoute": {
-        "ClusterId": "userCluster",
+      "matchmakingRoute": {
+        "ClusterId": "matchmakingCluster",
         "Match": {
-          "Path": "/profile/{**catch-all}"
-        }
-      },
-      "profilesRoute": {
-        "ClusterId": "userCluster",
-        "Match": {
-          "Path": "/api/profiles/{**catch-all}"
-        }
-      },
-      "wizardRoute": {
-        "ClusterId": "userCluster",
-        "Match": {
-          "Path": "/api/wizard/{**catch-all}"
+          "Path": "/api/matchmaking/{**catch-all}"
         }
       },
       "swipeRoute": {
@@ -47,12 +36,6 @@
         },
         "Metadata": {
           "RateLimitPolicy": "SwipesPerMinute"
-        }
-      },
-      "matchmakingRoute": {
-        "ClusterId": "matchmakingCluster",
-        "Match": {
-          "Path": "/api/matchmaking/{**catch-all}"
         }
       },
       "photoRoute": {
@@ -77,7 +60,7 @@
         }
       },
       "safetyRoute": {
-        "ClusterId": "userCluster",
+        "ClusterId": "safetyCluster",
         "Match": {
           "Path": "/api/safety/{**catch-all}"
         },
@@ -96,42 +79,49 @@
       "authCluster": {
         "Destinations": {
           "authService": {
-            "Address": "http://localhost:8081/"
+            "Address": "http://dating-auth-demo:80/"
           }
         }
       },
       "userCluster": {
         "Destinations": {
           "userService": {
-            "Address": "http://localhost:8082/"
-          }
-        }
-      },
-      "swipeCluster": {
-        "Destinations": {
-          "swipeService": {
-            "Address": "http://localhost:8087/"
+            "Address": "http://dating-user-demo:80/"
           }
         }
       },
       "matchmakingCluster": {
         "Destinations": {
           "matchmakingService": {
-            "Address": "http://localhost:8083/"
+            "Address": "http://dating-matchmaking-demo:80/"
           }
         }
       },
       "photoCluster": {
         "Destinations": {
           "photoService": {
-            "Address": "http://localhost:8085/"
+            "Address": "http://dating-photo-demo:80/"
           }
         }
       },
       "messagingCluster": {
         "Destinations": {
           "messagingService": {
-            "Address": "http://localhost:8086/"
+            "Address": "http://dating-messaging-demo:80/"
+          }
+        }
+      },
+      "swipeCluster": {
+        "Destinations": {
+          "swipeService": {
+            "Address": "http://dating-swipe-demo:80/"
+          }
+        }
+      },
+      "safetyCluster": {
+        "Destinations": {
+          "safetyService": {
+            "Address": "http://dating-safety-demo:80/"
           }
         }
       },
@@ -139,30 +129,34 @@
         "LoadBalancingPolicy": "RoundRobin",
         "Destinations": {
           "authService": {
-            "Address": "http://localhost:8081/"
+            "Address": "http://dating-auth-demo:80/"
           },
           "userService": {
-            "Address": "http://localhost:8082/"
+            "Address": "http://dating-user-demo:80/"
           },
           "matchmakingService": {
-            "Address": "http://localhost:8083/"
+            "Address": "http://dating-matchmaking-demo:80/"
           },
           "photoService": {
-            "Address": "http://localhost:8085/"
+            "Address": "http://dating-photo-demo:80/"
           },
           "messagingService": {
-            "Address": "http://localhost:8086/"
+            "Address": "http://dating-messaging-demo:80/"
           },
           "swipeService": {
-            "Address": "http://localhost:8087/"
+            "Address": "http://dating-swipe-demo:80/"
+          },
+          "safetyService": {
+            "Address": "http://dating-safety-demo:80/"
           }
         }
       }
     }
-  },
+  }
+  ,
   "Authentication": {
     "Keycloak": {
-      "Authority": "http://localhost:8090/realms/DatingApp",
+      "Authority": "http://dating-keycloak-demo/realms/DatingApp",
       "Audience": "yarp-gateway",
       "Audiences": [
         "yarp-gateway",
@@ -170,7 +164,8 @@
         "matchmaking-service",
         "photo-service",
         "messaging-service",
-        "swipe-service"
+        "swipe-service",
+        "safety-service"
       ],
       "RequireHttpsMetadata": false
     }
