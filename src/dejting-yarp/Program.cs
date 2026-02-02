@@ -64,12 +64,12 @@ builder.Services.AddCorrelationIds();
 // Configure rate limiting
 builder.Services.AddRateLimiter(options =>
 {
-    // Messages policy: 10 messages per minute
+    // Messages policy: 100 messages per minute (increased for testing)
     options.AddSlidingWindowLimiter("MessagesPerMinute", opt =>
     {
         opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 10;
-        opt.QueueLimit = 0;
+        opt.PermitLimit = 100;
+        opt.QueueLimit = 5;
         opt.SegmentsPerWindow = 2;
     });
     
@@ -118,12 +118,13 @@ builder.Services.AddRateLimiter(options =>
         opt.SegmentsPerWindow = 4;
     });
     
-    // Safety reports: 10 per day (existing policy, redefined here)
+    // Safety reports: 100 per day (increased for testing)
     options.AddSlidingWindowLimiter("SafetyReportsDaily", opt =>
     {
         opt.Window = TimeSpan.FromDays(1);
-        opt.PermitLimit = 10;
+        opt.PermitLimit = 100;
         opt.QueueLimit = 0;
+        opt.SegmentsPerWindow = 24;
     });
     
     // Partition by user ID from JWT token
