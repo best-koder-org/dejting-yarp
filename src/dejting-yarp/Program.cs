@@ -323,7 +323,7 @@ app.MapReverseProxy(proxyPipeline =>
 
         // Allow websocket connections (SignalR) to pass through - auth handled by hub via query string token
         if (context.WebSockets.IsWebSocketRequest || 
-            context.Request.Path.StartsWithSegments("/messagingHub", StringComparison.OrdinalIgnoreCase) ||
+            context.Request.Path.StartsWithSegments("/hubs/messages", StringComparison.OrdinalIgnoreCase) ||
             context.Request.Path.StartsWithSegments("/hubs", StringComparison.OrdinalIgnoreCase))
         {
             await next();
