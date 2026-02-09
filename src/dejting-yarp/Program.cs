@@ -64,11 +64,11 @@ builder.Services.AddCorrelationIds();
 // Configure rate limiting
 builder.Services.AddRateLimiter(options =>
 {
-    // Messages policy: 100 messages per minute (increased for testing)
+    // Messages policy: 10 messages per minute
     options.AddSlidingWindowLimiter("MessagesPerMinute", opt =>
     {
         opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 100;
+        opt.PermitLimit = 10;
         opt.QueueLimit = 5;
         opt.SegmentsPerWindow = 2;
     });
@@ -118,27 +118,109 @@ builder.Services.AddRateLimiter(options =>
         opt.SegmentsPerWindow = 4;
     });
     
-    // Safety reports: 100 per day (increased for testing)
+    // Safety reports: 5 per day
     options.AddSlidingWindowLimiter("SafetyReportsDaily", opt =>
     {
         opt.Window = TimeSpan.FromDays(1);
-        opt.PermitLimit = 100;
+        opt.PermitLimit = 10;
         opt.QueueLimit = 0;
         opt.SegmentsPerWindow = 24;
     });
     
-    // Partition by user ID from JWT token
+    // Path-based rate limiting with per-user partitioning via GlobalLimiter
+    // This replaces the PathBasedRateLimitMiddleware approach for reliable policy enforcement
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
     {
-        // Get user ID from JWT token (sub claim) or default to "anonymous"
-        var userId = context.User?.FindFirst("sub")?.Value 
-                     ?? context.User?.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value
-                     ?? context.Connection.RemoteIpAddress?.ToString()
-                     ?? "anonymous";
+        var path = context.Request.Path.Value ?? string.Empty;
         
-        // For YARP routes with rate limit metadata, return appropriate partition
-        // This will be handled by YARP's built-in rate limiting integration
-        return RateLimitPartition.GetNoLimiter<string>(userId);
+        // Health and auth endpoints bypass rate limiting
+        if (path.StartsWith("/health", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/api/auth", StringComparison.OrdinalIgnoreCase))
+        {
+            return RateLimitPartition.GetNoLimiter<string>("bypass");
+        }
+        
+        // Extract user identity for per-user partitioning
+        var userId = context.Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "") ?? "anonymous";
+        // Try to extract sub from JWT if available (will be set after auth middleware)
+        var sub = context.User?.FindFirst("sub")?.Value
+                  ?? context.User?.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+        var partitionKey = sub ?? userId;
+        
+        // Messages: 10 per minute
+        if (path.StartsWith("/api/messages", StringComparison.OrdinalIgnoreCase))
+        {
+            return RateLimitPartition.GetSlidingWindowLimiter($"messages-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = 10,
+                QueueLimit = 0,
+                SegmentsPerWindow = 2
+            });
+        }
+        
+        // Photos: 20 per day
+        if (path.StartsWith("/api/photos", StringComparison.OrdinalIgnoreCase))
+        {
+            return RateLimitPartition.GetSlidingWindowLimiter($"photos-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromDays(1),
+                PermitLimit = 20,
+                QueueLimit = 0,
+                SegmentsPerWindow = 6
+            });
+        }
+        
+        // Profile views: 60 per minute
+        if (path.StartsWith("/api/userprofiles", StringComparison.OrdinalIgnoreCase))
+        {
+            return RateLimitPartition.GetSlidingWindowLimiter($"profiles-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = 60,
+                QueueLimit = 0,
+                SegmentsPerWindow = 4
+            });
+        }
+        
+        // Swipes: 60 per minute
+        if (path.StartsWith("/api/swipes", StringComparison.OrdinalIgnoreCase))
+        {
+            return RateLimitPartition.GetSlidingWindowLimiter($"swipes-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = 60,
+                QueueLimit = 0,
+                SegmentsPerWindow = 4
+            });
+        }
+        
+        // Matchmaking: 20 per minute
+        if (path.StartsWith("/api/matchmaking", StringComparison.OrdinalIgnoreCase))
+        {
+            return RateLimitPartition.GetSlidingWindowLimiter($"matchmaking-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = 20,
+                QueueLimit = 0,
+                SegmentsPerWindow = 2
+            });
+        }
+        
+        // Safety: 5 per day
+        if (path.StartsWith("/api/safety", StringComparison.OrdinalIgnoreCase))
+        {
+            return RateLimitPartition.GetSlidingWindowLimiter($"safety-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromDays(1),
+                PermitLimit = 5,
+                QueueLimit = 0,
+                SegmentsPerWindow = 24
+            });
+        }
+        
+        // Default: no rate limit for unmatched paths
+        return RateLimitPartition.GetNoLimiter<string>("default");
     });
     
     // Global error handling for rate limit exceeded

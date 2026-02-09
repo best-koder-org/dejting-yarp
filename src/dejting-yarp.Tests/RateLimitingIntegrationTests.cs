@@ -151,7 +151,7 @@ public class RateLimitingIntegrationTests : IClassFixture<WebApplicationFactory<
         var user1RateLimited = user1Responses.Any(r => r.StatusCode == (HttpStatusCode)429);
         Assert.True(user1RateLimited, "User 1 should be rate limited");
 
-        var user2Allowed = user2Result.IsSuccessStatusCode || user2Result.StatusCode == HttpStatusCode.NotFound;
+        var user2Allowed = user2Result.StatusCode != (HttpStatusCode)429; // Any non-429 means user was not rate limited
         Assert.True(user2Allowed, "User 2 should NOT be rate limited (different user)");
     }
 
