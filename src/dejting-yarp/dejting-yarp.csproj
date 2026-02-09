@@ -21,7 +21,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\..\..\Shared\Middleware\CorrelationIdMiddleware.cs" Link="Shared/Middleware/CorrelationIdMiddleware.cs" />
   </ItemGroup>
 
 </Project>
