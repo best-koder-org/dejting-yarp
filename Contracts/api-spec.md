@@ -22,11 +22,6 @@
 - **PATCH** `/profile/photos/{photoId}` → update `privacyLevel`, `orderIndex`
 - **DELETE** `/profile/photos/{photoId}`
 
-### Onboarding Wizard Endpoints
-- **PATCH** `/wizard/step/1` → Basic info: `{ firstName, lastName, dateOfBirth, gender }` → returns `MemberProfileDto`
-- **PATCH** `/wizard/step/2` → Preferences: `{ minAge, maxAge, maxDistance, preferredGender, bio }` → returns `MemberProfileDto`
-- **PATCH** `/wizard/step/3` → Complete wizard: `{ photoUrls: ["url1", "url2"] }` → marks profile as `Ready`, returns `MemberProfileDto`
-
 ### DTOs
 ```json
 MemberProfileDto {
@@ -41,8 +36,7 @@ MemberProfileDto {
     "relationshipGoals": "serious"
   },
   "photos": [PhotoAssetDto],
-  "onboardingStatus": "Ready",  // "Incomplete" | "Ready" | "Suspended"
-  "onboardingCompletedAt": "2026-01-25T10:30:00Z"
+  "onboardingStatus": "Ready"
 }
 
 PhotoAssetDto {

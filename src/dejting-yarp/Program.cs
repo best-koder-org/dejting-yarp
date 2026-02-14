@@ -12,6 +12,10 @@ using Microsoft.Extensions.Hosting;
 using Yarp.ReverseProxy;
 using Serilog;
 using Serilog.Events;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -60,6 +64,22 @@ builder.Services.AddReverseProxy()
 builder.Services.AddKeycloakAuthentication(builder.Configuration);
 builder.Services.AddAuthorization();
 builder.Services.AddCorrelationIds();
+
+// ── OpenTelemetry Metrics ──
+var gatewayMeter = new Meter("DatingApp.YarpGateway", "1.0.0");
+var requestsForwarded = gatewayMeter.CreateCounter<long>("gateway_requests_forwarded_total", description: "Total requests forwarded by YARP");
+var requestsBlocked = gatewayMeter.CreateCounter<long>("gateway_requests_blocked_total", description: "Total requests blocked (auth/rate-limit/validation)");
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("YarpGateway"))
+    .WithMetrics(metrics =>
+    {
+        metrics.AddAspNetCoreInstrumentation()
+               .AddHttpClientInstrumentation()
+               .AddMeter("DatingApp.YarpGateway")
+               .AddMeter("Microsoft.AspNetCore.RateLimiting")
+               .AddPrometheusExporter();
+    });
 
 // Configure rate limiting
 builder.Services.AddRateLimiter(options =>
@@ -308,6 +328,7 @@ app.UseRateLimitHeaders(); // Add X-RateLimit-* headers
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapPrometheusScrapingEndpoint("/metrics");
 app.MapControllers();
 
 app.MapReverseProxy(proxyPipeline =>
