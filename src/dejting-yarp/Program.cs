@@ -356,12 +356,14 @@ app.MapReverseProxy(proxyPipeline =>
 
         if (!authenticateResult.Succeeded || authenticateResult.Principal is null)
         {
+            requestsBlocked.Add(1);
             await context.ChallengeAsync(JwtBearerDefaults.AuthenticationScheme);
             return;
         }
 
         context.User = authenticateResult.Principal;
 
+        requestsForwarded.Add(1);
         await next();
     });
 });
