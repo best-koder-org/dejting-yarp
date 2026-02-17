@@ -138,6 +138,15 @@ builder.Services.AddRateLimiter(options =>
         opt.SegmentsPerWindow = 4;
     });
     
+    // Verification: 5 per day (anti-abuse, matches service-level 3/day limit with buffer)
+    options.AddSlidingWindowLimiter("VerificationDaily", opt =>
+    {
+        opt.Window = TimeSpan.FromDays(1);
+        opt.PermitLimit = 5;
+        opt.QueueLimit = 0;
+        opt.SegmentsPerWindow = 24;
+    });
+
     // Safety reports: 5 per day
     options.AddSlidingWindowLimiter("SafetyReportsDaily", opt =>
     {
@@ -179,6 +188,18 @@ builder.Services.AddRateLimiter(options =>
             });
         }
         
+        // Verification: 5 per day (gateway-level, service enforces 3/day in DB)
+        if (path.StartsWith("/api/verification", StringComparison.OrdinalIgnoreCase))
+        {
+            return RateLimitPartition.GetSlidingWindowLimiter($"verification-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromDays(1),
+                PermitLimit = 5,
+                QueueLimit = 0,
+                SegmentsPerWindow = 24
+            });
+        }
+
         // Photos: 20 per day
         if (path.StartsWith("/api/photos", StringComparison.OrdinalIgnoreCase))
         {
