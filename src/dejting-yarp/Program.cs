@@ -147,13 +147,13 @@ builder.Services.AddRateLimiter(options =>
         opt.SegmentsPerWindow = 24;
     });
 
-    // Safety reports: 5 per day
+    // Safety actions: generous limit for block/unblock + stricter for reports
     options.AddSlidingWindowLimiter("SafetyReportsDaily", opt =>
     {
-        opt.Window = TimeSpan.FromDays(1);
-        opt.PermitLimit = 10;
+        opt.Window = TimeSpan.FromHours(1);
+        opt.PermitLimit = 50;
         opt.QueueLimit = 0;
-        opt.SegmentsPerWindow = 24;
+        opt.SegmentsPerWindow = 4;
     });
     
     // Path-based rate limiting with per-user partitioning via GlobalLimiter
@@ -248,15 +248,27 @@ builder.Services.AddRateLimiter(options =>
             });
         }
         
-        // Safety: 5 per day
+        // Safety reports: stricter limit (10/hour)
+        if (path.StartsWith("/api/safety/report", StringComparison.OrdinalIgnoreCase))
+        {
+            return RateLimitPartition.GetSlidingWindowLimiter($"safety-report-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromHours(1),
+                PermitLimit = 10,
+                QueueLimit = 0,
+                SegmentsPerWindow = 4
+            });
+        }
+
+        // Safety block/unblock/list: generous limit (60/hour)
         if (path.StartsWith("/api/safety", StringComparison.OrdinalIgnoreCase))
         {
             return RateLimitPartition.GetSlidingWindowLimiter($"safety-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
             {
-                Window = TimeSpan.FromDays(1),
-                PermitLimit = 5,
+                Window = TimeSpan.FromHours(1),
+                PermitLimit = 60,
                 QueueLimit = 0,
-                SegmentsPerWindow = 24
+                SegmentsPerWindow = 4
             });
         }
         

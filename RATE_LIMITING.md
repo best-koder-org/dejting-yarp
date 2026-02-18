@@ -14,7 +14,9 @@ The YARP API Gateway enforces rate limiting on all user-facing endpoints to prev
 | **ProfileUpdatesPerHour** | 10 requests | 1 hour | Profile CRUD | `/api/userprofiles/*` |
 | **MatchActionsPerMinute** | 20 requests | 1 minute | Matchmaking | `/api/matchmaking/*` |
 | **SwipesPerMinute** | 60 requests | 1 minute | Swipe Actions | `/api/swipes/*` |
-| **SafetyReportsDaily** | 10 requests | 1 day | Safety Reports | `/api/safety/*` |
+| **SafetyReportsDaily** | 50 requests | 1 hour | Safety Actions | `/api/safety/*` |
+| *Safety reports partition* | 10 requests | 1 hour | Report abuse | `/api/safety/report*` |
+| *Safety block partition* | 60 requests | 1 hour | Block/unblock | `/api/safety/block*` |
 
 ## Algorithm: Sliding Window
 
