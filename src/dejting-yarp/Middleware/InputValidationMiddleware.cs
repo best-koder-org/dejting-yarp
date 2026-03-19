@@ -30,9 +30,12 @@ public class InputValidationMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        // Skip validation for health checks
+        // Skip validation for health checks, swagger, and SignalR hubs
+        // SignalR passes JWT tokens and connection IDs in query strings which
+        // contain base64url characters (like '--') that trigger false positives
         if (context.Request.Path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase) ||
-            context.Request.Path.StartsWithSegments("/swagger", StringComparison.OrdinalIgnoreCase))
+            context.Request.Path.StartsWithSegments("/swagger", StringComparison.OrdinalIgnoreCase) ||
+            context.Request.Path.StartsWithSegments("/hubs", StringComparison.OrdinalIgnoreCase))
         {
             await _next(context);
             return;
