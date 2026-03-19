@@ -14,10 +14,21 @@ public class SecurityHeadersMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
+        // Skip security headers for WebSocket/SignalR hub connections
+        // WebSocket upgrades send response headers immediately; setting them after causes crashes
+        if (context.WebSockets.IsWebSocketRequest ||
+            context.Request.Path.StartsWithSegments("/hubs", StringComparison.OrdinalIgnoreCase))
+        {
+            await _next(context);
+            return;
+        }
+
         // Add security headers using OnStarting callback
         // This ensures headers are added just before response starts, but after routing/auth
         context.Response.OnStarting(() =>
         {
+            if (context.Response.HasStarted) return Task.CompletedTask;
+
             var headers = context.Response.Headers;
 
             // X-Content-Type-Options: Prevents MIME type sniffing
@@ -33,10 +44,9 @@ public class SecurityHeadersMiddleware
             headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
 
             // Content-Security-Policy: Primary defense against XSS
-            // Note: Adjust for actual frontend domains in production
             headers["Content-Security-Policy"] =
                 "default-src 'self'; " +
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " + // Allow inline scripts for Swagger
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
                 "style-src 'self' 'unsafe-inline'; " +
                 "img-src 'self' data: https:; " +
                 "font-src 'self' data:; " +

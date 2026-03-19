@@ -34,10 +34,11 @@ public static class KeycloakAuthenticationExtensions
         {
             options.Authority = authority;
             options.RequireHttpsMetadata = requireHttpsMetadata;
+            var validIssuers = BuildValidIssuersList(keycloakSection, authority);
             options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
-                ValidIssuer = authority,
+                ValidIssuers = validIssuers,
                 ValidateAudience = audiences.Count > 0,
                 ValidAudiences = audiences,
                 ValidateIssuerSigningKey = true,
@@ -48,6 +49,20 @@ public static class KeycloakAuthenticationExtensions
         });
 
         return services;
+    }
+
+    private static List<string> BuildValidIssuersList(IConfigurationSection keycloakSection, string authority)
+    {
+        var issuers = new List<string> { authority };
+        var configuredIssuers = keycloakSection.GetSection("ValidIssuers").Get<string[]>() ?? Array.Empty<string>();
+        foreach (var issuer in configuredIssuers)
+        {
+            if (!string.IsNullOrWhiteSpace(issuer) && !issuers.Contains(issuer))
+            {
+                issuers.Add(issuer);
+            }
+        }
+        return issuers;
     }
 
     private static List<string> BuildAudienceList(IConfigurationSection keycloakSection)
