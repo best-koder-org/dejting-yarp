@@ -314,7 +314,7 @@ builder.Services.AddSwaggerGen(c =>
     });
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = System.IO.Path.Combine(AppContext.BaseDirectory, xmlFile);
-    c.IncludeXmlComments(xmlPath);
+    if (System.IO.File.Exists(xmlPath)) c.IncludeXmlComments(xmlPath);
 });
 
 var app = builder.Build();
@@ -370,6 +370,13 @@ app.MapReverseProxy(proxyPipeline =>
     {
         // Allow auth endpoints without authentication
         if (context.Request.Path.StartsWithSegments("/api/auth", StringComparison.OrdinalIgnoreCase))
+        {
+            await next();
+            return;
+        }
+
+        // Allow Keycloak paths without authentication (proxied to Keycloak)
+        if (context.Request.Path.StartsWithSegments("/auth", StringComparison.OrdinalIgnoreCase))
         {
             await next();
             return;

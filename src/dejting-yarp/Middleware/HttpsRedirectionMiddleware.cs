@@ -21,8 +21,8 @@ public class HttpsEnforcementMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        // Skip HTTPS enforcement in development
-        if (_env.IsDevelopment())
+        // Skip HTTPS enforcement in development and staging (Tailscale Funnel handles TLS)
+        if (_env.IsDevelopment() || _env.IsStaging())
         {
             await _next(context);
             return;
