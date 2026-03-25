@@ -46,13 +46,25 @@ if (builder.Environment.EnvironmentName == "Local")
     builder.Configuration.AddJsonFile("appsettings.Local.json", optional: false, reloadOnChange: true);
 }
 
+// CORS: config-driven origins — AllowAnyOrigin in dev, restricted in staging/production
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        if (allowedOrigins != null && allowedOrigins.Length > 0)
+        {
+            policy.WithOrigins(allowedOrigins)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials();
+        }
+        else
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        }
     });
 });
 
@@ -84,12 +96,12 @@ builder.Services.AddOpenTelemetry()
 // Configure rate limiting
 builder.Services.AddRateLimiter(options =>
 {
-    // Messages policy: 10 messages per minute
+    // Messages policy: 120 requests per minute (chat UI polls frequently)
     options.AddSlidingWindowLimiter("MessagesPerMinute", opt =>
     {
         opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 10;
-        opt.QueueLimit = 5;
+        opt.PermitLimit = 1200;
+        opt.QueueLimit = 10;
         opt.SegmentsPerWindow = 2;
     });
     
@@ -106,7 +118,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddSlidingWindowLimiter("ProfileViewsPerMinute", opt =>
     {
         opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 60;
+        opt.PermitLimit = 600;
         opt.QueueLimit = 0;
         opt.SegmentsPerWindow = 4;
     });
@@ -124,7 +136,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddSlidingWindowLimiter("MatchActionsPerMinute", opt =>
     {
         opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 20;
+        opt.PermitLimit = 200;
         opt.QueueLimit = 0;
         opt.SegmentsPerWindow = 2;
     });
@@ -133,7 +145,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddSlidingWindowLimiter("SwipesPerMinute", opt =>
     {
         opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 60;
+        opt.PermitLimit = 600;
         opt.QueueLimit = 0;
         opt.SegmentsPerWindow = 4;
     });
@@ -151,7 +163,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddSlidingWindowLimiter("SafetyReportsDaily", opt =>
     {
         opt.Window = TimeSpan.FromHours(1);
-        opt.PermitLimit = 50;
+        opt.PermitLimit = 5000;
         opt.QueueLimit = 0;
         opt.SegmentsPerWindow = 4;
     });
@@ -176,13 +188,13 @@ builder.Services.AddRateLimiter(options =>
                   ?? context.User?.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
         var partitionKey = sub ?? userId;
         
-        // Messages: 10 per minute
+        // Messages: 120 per minute (chat UI polls frequently)
         if (path.StartsWith("/api/messages", StringComparison.OrdinalIgnoreCase))
         {
             return RateLimitPartition.GetSlidingWindowLimiter($"messages-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
             {
                 Window = TimeSpan.FromMinutes(1),
-                PermitLimit = 10,
+                PermitLimit = 1200,
                 QueueLimit = 0,
                 SegmentsPerWindow = 2
             });
@@ -218,7 +230,7 @@ builder.Services.AddRateLimiter(options =>
             return RateLimitPartition.GetSlidingWindowLimiter($"profiles-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
             {
                 Window = TimeSpan.FromMinutes(1),
-                PermitLimit = 60,
+                PermitLimit = 600,
                 QueueLimit = 0,
                 SegmentsPerWindow = 4
             });
@@ -230,7 +242,7 @@ builder.Services.AddRateLimiter(options =>
             return RateLimitPartition.GetSlidingWindowLimiter($"swipes-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
             {
                 Window = TimeSpan.FromMinutes(1),
-                PermitLimit = 60,
+                PermitLimit = 300,
                 QueueLimit = 0,
                 SegmentsPerWindow = 4
             });
@@ -242,7 +254,7 @@ builder.Services.AddRateLimiter(options =>
             return RateLimitPartition.GetSlidingWindowLimiter($"matchmaking-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
             {
                 Window = TimeSpan.FromMinutes(1),
-                PermitLimit = 20,
+                PermitLimit = 120,
                 QueueLimit = 0,
                 SegmentsPerWindow = 2
             });
@@ -254,7 +266,7 @@ builder.Services.AddRateLimiter(options =>
             return RateLimitPartition.GetSlidingWindowLimiter($"safety-report-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
             {
                 Window = TimeSpan.FromHours(1),
-                PermitLimit = 10,
+                PermitLimit = 100,
                 QueueLimit = 0,
                 SegmentsPerWindow = 4
             });
@@ -266,7 +278,7 @@ builder.Services.AddRateLimiter(options =>
             return RateLimitPartition.GetSlidingWindowLimiter($"safety-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
             {
                 Window = TimeSpan.FromHours(1),
-                PermitLimit = 60,
+                PermitLimit = 3600,
                 QueueLimit = 0,
                 SegmentsPerWindow = 4
             });
