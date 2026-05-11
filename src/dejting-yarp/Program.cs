@@ -395,6 +395,13 @@ app.MapReverseProxy(proxyPipeline =>
             return;
         }
 
+        // Allow anonymous user feedback submissions (dev/tester ergonomics)
+        if (context.Request.Path.StartsWithSegments("/api/userfeedback", StringComparison.OrdinalIgnoreCase))
+        {
+            await next();
+            return;
+        }
+
         // Allow websocket connections (SignalR) to pass through - auth handled by hub via query string token
         if (context.WebSockets.IsWebSocketRequest || 
             context.Request.Path.StartsWithSegments("/hubs/messages", StringComparison.OrdinalIgnoreCase) ||
