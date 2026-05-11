@@ -284,6 +284,18 @@ builder.Services.AddRateLimiter(options =>
                 SegmentsPerWindow = 4
             });
         }
+
+        // User feedback (tester voice memos): 30/hour per IP — anti-abuse for anonymous endpoint
+        if (path.StartsWith("/api/userfeedback", StringComparison.OrdinalIgnoreCase))
+        {
+            return RateLimitPartition.GetSlidingWindowLimiter($"userfeedback-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromHours(1),
+                PermitLimit = 30,
+                QueueLimit = 0,
+                SegmentsPerWindow = 4
+            });
+        }
         
         // Default: no rate limit for unmatched paths
         return RateLimitPartition.GetNoLimiter<string>("default");
