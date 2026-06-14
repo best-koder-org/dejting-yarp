@@ -301,6 +301,18 @@ builder.Services.AddRateLimiter(options =>
             });
         }
         
+        // Spark sends: 10 per minute (prevents spam, allows normal usage)
+        if (path.StartsWith("/api/billing/sparks/send", StringComparison.OrdinalIgnoreCase))
+        {
+            return RateLimitPartition.GetSlidingWindowLimiter($"sparks-send-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = 10,
+                QueueLimit = 0,
+                SegmentsPerWindow = 2
+            });
+        }
+        
         // Default: no rate limit for unmatched paths
         return RateLimitPartition.GetNoLimiter<string>("default");
     });
@@ -416,6 +428,13 @@ app.MapReverseProxy(proxyPipeline =>
 
         // Allow anonymous user feedback submissions (dev/tester ergonomics)
         if (context.Request.Path.StartsWithSegments("/api/userfeedback", StringComparison.OrdinalIgnoreCase))
+        {
+            await next();
+            return;
+        }
+
+        // Allow public billing endpoints (catalog)
+        if (context.Request.Path.StartsWithSegments("/api/billing/catalog", StringComparison.OrdinalIgnoreCase))
         {
             await next();
             return;
