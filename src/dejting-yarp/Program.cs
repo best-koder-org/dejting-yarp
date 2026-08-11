@@ -46,18 +46,31 @@ if (builder.Environment.EnvironmentName == "Local")
     builder.Configuration.AddJsonFile("appsettings.Local.json", optional: false, reloadOnChange: true);
 }
 
+// CORS: config-driven origins — AllowAnyOrigin in dev, restricted in staging/production
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        if (allowedOrigins != null && allowedOrigins.Length > 0)
+        {
+            policy.WithOrigins(allowedOrigins)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials();
+        }
+        else
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        }
     });
 });
 
 // Add services to the container.
 builder.Services.AddControllers();
+builder.Services.AddHttpClient();
 builder.Services.AddReverseProxy()
                 .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
@@ -84,12 +97,12 @@ builder.Services.AddOpenTelemetry()
 // Configure rate limiting
 builder.Services.AddRateLimiter(options =>
 {
-    // Messages policy: 10 messages per minute
+    // Messages policy: 120 requests per minute (chat UI polls frequently)
     options.AddSlidingWindowLimiter("MessagesPerMinute", opt =>
     {
         opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 10;
-        opt.QueueLimit = 5;
+        opt.PermitLimit = 1200;
+        opt.QueueLimit = 10;
         opt.SegmentsPerWindow = 2;
     });
     
@@ -106,7 +119,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddSlidingWindowLimiter("ProfileViewsPerMinute", opt =>
     {
         opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 60;
+        opt.PermitLimit = 600;
         opt.QueueLimit = 0;
         opt.SegmentsPerWindow = 4;
     });
@@ -124,7 +137,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddSlidingWindowLimiter("MatchActionsPerMinute", opt =>
     {
         opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 20;
+        opt.PermitLimit = 200;
         opt.QueueLimit = 0;
         opt.SegmentsPerWindow = 2;
     });
@@ -133,7 +146,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddSlidingWindowLimiter("SwipesPerMinute", opt =>
     {
         opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 60;
+        opt.PermitLimit = 600;
         opt.QueueLimit = 0;
         opt.SegmentsPerWindow = 4;
     });
@@ -151,7 +164,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddSlidingWindowLimiter("SafetyReportsDaily", opt =>
     {
         opt.Window = TimeSpan.FromHours(1);
-        opt.PermitLimit = 50;
+        opt.PermitLimit = 5000;
         opt.QueueLimit = 0;
         opt.SegmentsPerWindow = 4;
     });
@@ -176,13 +189,13 @@ builder.Services.AddRateLimiter(options =>
                   ?? context.User?.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
         var partitionKey = sub ?? userId;
         
-        // Messages: 10 per minute
+        // Messages: 120 per minute (chat UI polls frequently)
         if (path.StartsWith("/api/messages", StringComparison.OrdinalIgnoreCase))
         {
             return RateLimitPartition.GetSlidingWindowLimiter($"messages-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
             {
                 Window = TimeSpan.FromMinutes(1),
-                PermitLimit = 10,
+                PermitLimit = 1200,
                 QueueLimit = 0,
                 SegmentsPerWindow = 2
             });
@@ -218,13 +231,13 @@ builder.Services.AddRateLimiter(options =>
             return RateLimitPartition.GetSlidingWindowLimiter($"profiles-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
             {
                 Window = TimeSpan.FromMinutes(1),
-                PermitLimit = 60,
+                PermitLimit = 600,
                 QueueLimit = 0,
                 SegmentsPerWindow = 4
             });
         }
         
-        // Swipes: 60 per minute
+        // Swipes: 60 per minute (per-user)
         if (path.StartsWith("/api/swipes", StringComparison.OrdinalIgnoreCase))
         {
             return RateLimitPartition.GetSlidingWindowLimiter($"swipes-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
@@ -242,7 +255,7 @@ builder.Services.AddRateLimiter(options =>
             return RateLimitPartition.GetSlidingWindowLimiter($"matchmaking-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
             {
                 Window = TimeSpan.FromMinutes(1),
-                PermitLimit = 20,
+                PermitLimit = 120,
                 QueueLimit = 0,
                 SegmentsPerWindow = 2
             });
@@ -254,7 +267,7 @@ builder.Services.AddRateLimiter(options =>
             return RateLimitPartition.GetSlidingWindowLimiter($"safety-report-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
             {
                 Window = TimeSpan.FromHours(1),
-                PermitLimit = 10,
+                PermitLimit = 100,
                 QueueLimit = 0,
                 SegmentsPerWindow = 4
             });
@@ -266,9 +279,37 @@ builder.Services.AddRateLimiter(options =>
             return RateLimitPartition.GetSlidingWindowLimiter($"safety-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
             {
                 Window = TimeSpan.FromHours(1),
-                PermitLimit = 60,
+                PermitLimit = 3600,
                 QueueLimit = 0,
                 SegmentsPerWindow = 4
+            });
+        }
+
+        // User feedback (tester voice memos): 30/hour by default for production.
+        // For Local/Development increase the limit to avoid blocking local testing.
+        if (path.StartsWith("/api/userfeedback", StringComparison.OrdinalIgnoreCase))
+        {
+            var isLocalDev = builder.Environment.IsDevelopment() ||
+                             string.Equals(builder.Environment.EnvironmentName, "Local", StringComparison.OrdinalIgnoreCase);
+            var permitLimit = isLocalDev ? 1000 : 30;
+            return RateLimitPartition.GetSlidingWindowLimiter($"userfeedback-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromHours(1),
+                PermitLimit = permitLimit,
+                QueueLimit = 0,
+                SegmentsPerWindow = 4
+            });
+        }
+        
+        // Spark sends: 10 per minute (prevents spam, allows normal usage)
+        if (path.StartsWith("/api/billing/sparks/send", StringComparison.OrdinalIgnoreCase))
+        {
+            return RateLimitPartition.GetSlidingWindowLimiter($"sparks-send-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = 10,
+                QueueLimit = 0,
+                SegmentsPerWindow = 2
             });
         }
         
@@ -314,7 +355,7 @@ builder.Services.AddSwaggerGen(c =>
     });
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = System.IO.Path.Combine(AppContext.BaseDirectory, xmlFile);
-    c.IncludeXmlComments(xmlPath);
+    if (System.IO.File.Exists(xmlPath)) c.IncludeXmlComments(xmlPath);
 });
 
 var app = builder.Build();
@@ -334,8 +375,11 @@ else
     });
 }
 
-// Enforce HTTPS in production (before CORS)
-app.UseHttpsEnforcement();
+// Enforce HTTPS in production (before CORS). Skip for Development and Local envs
+if (!app.Environment.IsDevelopment() && !string.Equals(app.Environment.EnvironmentName, "Local", StringComparison.OrdinalIgnoreCase))
+{
+    app.UseHttpsEnforcement();
+}
 
 app.UseCors("AllowAll");
 
@@ -370,6 +414,27 @@ app.MapReverseProxy(proxyPipeline =>
     {
         // Allow auth endpoints without authentication
         if (context.Request.Path.StartsWithSegments("/api/auth", StringComparison.OrdinalIgnoreCase))
+        {
+            await next();
+            return;
+        }
+
+        // Allow Keycloak paths without authentication (proxied to Keycloak)
+        if (context.Request.Path.StartsWithSegments("/auth", StringComparison.OrdinalIgnoreCase))
+        {
+            await next();
+            return;
+        }
+
+        // Allow anonymous user feedback submissions (dev/tester ergonomics)
+        if (context.Request.Path.StartsWithSegments("/api/userfeedback", StringComparison.OrdinalIgnoreCase))
+        {
+            await next();
+            return;
+        }
+
+        // Allow public billing endpoints (catalog)
+        if (context.Request.Path.StartsWithSegments("/api/billing/catalog", StringComparison.OrdinalIgnoreCase))
         {
             await next();
             return;

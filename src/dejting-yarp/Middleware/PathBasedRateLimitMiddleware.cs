@@ -82,12 +82,6 @@ public class PathBasedRateLimitMiddleware
             return "MatchActionsPerMinute";
         }
         
-        // Swipes
-        if (path.StartsWith("/api/swipes", StringComparison.OrdinalIgnoreCase))
-        {
-            return "SwipesPerMinute";
-        }
-        
         // Safety
         if (path.StartsWith("/api/safety", StringComparison.OrdinalIgnoreCase))
         {
