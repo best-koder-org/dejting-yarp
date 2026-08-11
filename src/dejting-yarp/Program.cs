@@ -237,13 +237,13 @@ builder.Services.AddRateLimiter(options =>
             });
         }
         
-        // Swipes: 60 per minute
+        // Swipes: 60 per minute (per-user)
         if (path.StartsWith("/api/swipes", StringComparison.OrdinalIgnoreCase))
         {
             return RateLimitPartition.GetSlidingWindowLimiter($"swipes-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
             {
                 Window = TimeSpan.FromMinutes(1),
-                PermitLimit = 300,
+                PermitLimit = 60,
                 QueueLimit = 0,
                 SegmentsPerWindow = 4
             });
