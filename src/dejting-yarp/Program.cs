@@ -285,13 +285,13 @@ builder.Services.AddRateLimiter(options =>
             });
         }
 
-        // User feedback (tester voice memos): 30/hour by default for production.
+        // User feedback (tester voice memos): 90/hour by default for production.
         // For Local/Development increase the limit to avoid blocking local testing.
         if (path.StartsWith("/api/userfeedback", StringComparison.OrdinalIgnoreCase))
         {
             var isLocalDev = builder.Environment.IsDevelopment() ||
                              string.Equals(builder.Environment.EnvironmentName, "Local", StringComparison.OrdinalIgnoreCase);
-            var permitLimit = isLocalDev ? 1000 : 30;
+            var permitLimit = isLocalDev ? 3000 : 90;
             return RateLimitPartition.GetSlidingWindowLimiter($"userfeedback-{partitionKey}", _ => new SlidingWindowRateLimiterOptions
             {
                 Window = TimeSpan.FromHours(1),

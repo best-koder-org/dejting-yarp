@@ -47,6 +47,36 @@ public class AdminResetController : ControllerBase
             new { Name = "swipe",       Url = $"{ServiceUrl("Swipe",       "http://localhost:8087")}/api/admin/swipes" }
         };
 
+        return await FanOutAsync("reset-interactions", targets, bearer, ct);
+    }
+
+    /// <summary>
+    /// Composite targeted purge — fans out to the bot-only delete endpoints on each service
+    /// (DELETE /api/admin/bot-*). Only bot-generated rows are removed; real-user data is
+    /// never touched. Forwards the caller's bearer token unchanged.
+    /// </summary>
+    [HttpPost("reset-bot-interactions")]
+    public async Task<IActionResult> ResetBotInteractions([FromQuery] int olderThanHours = 0, CancellationToken ct = default)
+    {
+        var bearer = Request.Headers["Authorization"].ToString();
+        if (string.IsNullOrEmpty(bearer))
+        {
+            return Unauthorized(new { error = "Missing Authorization header" });
+        }
+
+        var ttl = olderThanHours > 0 ? $"?olderThanHours={olderThanHours}" : string.Empty;
+        var targets = new[]
+        {
+            new { Name = "matchmaking", Url = $"{ServiceUrl("Matchmaking", "http://localhost:8083")}/api/admin/bot-match-data{ttl}" },
+            new { Name = "messaging",   Url = $"{ServiceUrl("Messaging",   "http://localhost:8086")}/api/admin/bot-messages{ttl}" },
+            new { Name = "swipe",       Url = $"{ServiceUrl("Swipe",       "http://localhost:8087")}/api/admin/bot-swipe-data{ttl}" }
+        };
+
+        return await FanOutAsync("reset-bot-interactions", targets, bearer, ct);
+    }
+
+    private async Task<IActionResult> FanOutAsync(string op, IEnumerable<object> targets, string bearer, CancellationToken ct)
+    {
         var results = new List<object>();
         var anyFailed = false;
 
@@ -55,16 +85,18 @@ public class AdminResetController : ControllerBase
 
         foreach (var t in targets)
         {
+            var name = t.GetType().GetProperty("Name")!.GetValue(t)!.ToString()!;
+            var url = t.GetType().GetProperty("Url")!.GetValue(t)!.ToString()!;
             try
             {
-                using var req = new HttpRequestMessage(HttpMethod.Delete, t.Url);
+                using var req = new HttpRequestMessage(HttpMethod.Delete, url);
                 req.Headers.TryAddWithoutValidation("Authorization", bearer);
                 using var resp = await client.SendAsync(req, ct);
                 var body = await resp.Content.ReadAsStringAsync(ct);
                 if (!resp.IsSuccessStatusCode) { anyFailed = true; }
                 results.Add(new
                 {
-                    service = t.Name,
+                    service = name,
                     status = (int)resp.StatusCode,
                     ok = resp.IsSuccessStatusCode,
                     body
@@ -73,13 +105,14 @@ public class AdminResetController : ControllerBase
             catch (Exception ex)
             {
                 anyFailed = true;
-                _logger.LogError(ex, "AdminReset: {Service} failed", t.Name);
-                results.Add(new { service = t.Name, status = 0, ok = false, body = ex.Message });
+                _logger.LogError(ex, "AdminReset: {Service} failed", name);
+                results.Add(new { service = name, status = 0, ok = false, body = ex.Message });
             }
         }
 
-        _logger.LogWarning("[FINDING] High AdminReset: composite reset by {User}; anyFailed={Failed}",
-            User.Identity?.Name ?? "unknown", anyFailed);
+        var severity = op == "reset-interactions" ? "High" : "Medium";
+        _logger.LogWarning("[FINDING] {Severity} AdminReset: composite {Op} by {User}; anyFailed={Failed}",
+            severity, op, User.Identity?.Name ?? "unknown", anyFailed);
 
         return StatusCode(anyFailed ? 207 : 200, new { results });
     }
